@@ -10,15 +10,18 @@ import {
   Menu,
   LogOut,
   ChevronRight,
+  Stethoscope,
+  ContactRound,
 } from "lucide-react";
 
 const navItems = [
   { name: "Dashboard", icon: LayoutDashboard, label: "Dashboard", to: "/admin" },
+  { name: "Calendario", icon: Calendar, label: "Calendário", to: "/admin/calendario" },
   { name: "Agendamentos", icon: Calendar, label: "Agendamentos", to: "/admin/agendamentos" },
   { name: "Pacientes", icon: Users, label: "Pacientes", to: "/admin/pacientes" },
   { name: "Financeiro", icon: TrendingUp, label: "Financeiro", to: "/admin/financeiro" },
   { name: "Relatorios", icon: BarChart3, label: "Relatórios", to: "/admin/relatorios" },
-  { name: "Funcionarios", icon: Users, label: "Funcionários", to: "/admin/funcionarios" },
+  { name: "Funcionarios", icon: ContactRound, label: "Funcionários", to: "/admin/funcionarios" },
 ];
 
 // MOCK de usuário (protótipo) — depois você troca por API/login real

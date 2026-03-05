@@ -12,7 +12,7 @@ const features = [
 
 const stats = [
   { icon: Users, value: "2.000+", label: "Pacientes Atendidos" },
-  { icon: Clock, value: "15+", label: "Anos de Experiência" },
+  { icon: Clock, value: "10+", label: "Anos de Experiência" },
   { icon: Award, value: "100%", label: "Compromisso com Qualidade" },
 ];
 
@@ -49,7 +49,7 @@ export default function About() {
             </h2>
 
             <p className="text-gray-600 mb-6">
-              Atuamos há mais de 15 anos oferecendo tratamentos odontológicos
+              Atuamos há mais de 10 anos oferecendo tratamentos odontológicos
               modernos com foco na saúde e bem-estar dos nossos pacientes.
               Nossa missão é proporcionar atendimento de excelência com
               tecnologia e cuidado humanizado.

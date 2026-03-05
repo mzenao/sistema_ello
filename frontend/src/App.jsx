@@ -9,6 +9,7 @@ import Patients from "./pages/Patients.jsx";
 import Financeiro from "./pages/Financial.jsx";
 import Relatorios from "./pages/Reports.jsx";
 import Funcionarios from "./pages/Employees.jsx";
+import Calendario from "./pages/CalendarHub.jsx"
 
 export default function App() {
   return (
@@ -23,7 +24,7 @@ export default function App() {
       <Route path="/admin/financeiro" element={<AdminLayout><Financeiro/></AdminLayout>}/>
       <Route path="/admin/relatorios" element={<AdminLayout><Relatorios/></AdminLayout>}/>
       <Route path="/admin/funcionarios" element={<AdminLayout><Funcionarios/></AdminLayout>}/>
-
+      <Route path="/admin/calendario" element={<AdminLayout><Calendario/></AdminLayout>}/>
       
       {/* Fallback para rotas inválidas */}
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -9,7 +9,7 @@ import logo from "@/assets/logo_ello.png";
 ========================= */
 
 const stats = [
-  { value: "15+", label: "Anos de Experiência" },
+  { value: "10+", label: "Anos de Experiência" },
   { value: "2000+", label: "Pacientes Atendidos" },
   { value: "98%", label: "Satisfação" },
 ];
