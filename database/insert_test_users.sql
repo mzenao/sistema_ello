@@ -1,0 +1,7 @@
+-- Nao use hashes fixos aqui.
+-- Os hashes precisam ser gerados com o mesmo algoritmo do backend (Werkzeug PBKDF2).
+--
+-- Para inserir/atualizar usuarios de teste corretamente, execute:
+--   python backend/scripts/seed_auth_users.py
+--
+-- Esse script faz upsert e gera password_hash valido com User.set_password().
