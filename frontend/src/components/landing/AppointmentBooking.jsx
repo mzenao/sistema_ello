@@ -82,13 +82,13 @@ export default function AppointmentBooking({ onClose }) {
         service: selectedService.value,
         date: formatDate(),
         time: selectedTime,
-        status: 'agendado',
-        origin: 'site'
+        status: 'agendado'
       });
 
       setDone(true);
     } catch (err) {
-      setError('Erro ao enviar agendamento. Tente novamente.');
+      setError(err.message || 'Erro ao enviar agendamento. Tente novamente.');
+      console.error('Erro ao criar agendamento:', err);
     } finally {
       setSubmitting(false);
     }
@@ -301,7 +301,9 @@ export default function AppointmentBooking({ onClose }) {
               </div>
 
               {error && (
-                <p className="text-red-500 text-sm mt-3">{error}</p>
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm mt-4">
+                  {error}
+                </div>
               )}
 
               <div className="flex gap-3 mt-6">

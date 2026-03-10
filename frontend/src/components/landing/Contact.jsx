@@ -4,7 +4,7 @@ import { MapPin, Phone, Mail, Clock, MessageCircle } from "lucide-react";
 
 export default function Contact() {
 
-  const whatsappNumber = "5532999999999"; // Coloque seu número com DDD e 55
+  const whatsappNumber = "5532984028138"; // Coloque seu número com DDD e 55
   const message = "Olá, gostaria de agendar uma consulta!";
   const whatsappLink = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
 

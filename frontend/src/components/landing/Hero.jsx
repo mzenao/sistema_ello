@@ -129,7 +129,7 @@ export default function Hero({ onOpenBooking }) {
                       <img
                         src={logo}
                         alt="Logo Odonto Ello"
-                        className="w-24 h-24 scale-300 object-contain -ml-1"
+                        className="w-24 h-24 scale-220 object-contain -ml-1"
                       />
                     </div>
                     <p className="text-white/90 font-medium">

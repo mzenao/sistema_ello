@@ -1,26 +1,45 @@
 import { useState } from "react";
-import { X } from "lucide-react";
+import { X, AlertCircle, CheckCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { login } from "@/services/api";
 
-export default function AuthModal({ onClose, onLogin, onRegister }) {
-  const [mode, setMode] = useState("login"); // "login" | "register"
-
+export default function AuthModal({ onClose, onLoginSuccess }) {
   const [loginData, setLoginData] = useState({ email: "", password: "" });
-  const [registerData, setRegisterData] = useState({
-    name: "",
-    email: "",
-    password: "",
-    confirm: "",
-  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   const set = (obj, fn) => (e) => fn({ ...obj, [e.target.name]: e.target.value });
 
-  const submit = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    if (mode === "login" && onLogin) onLogin(loginData);
-    if (mode === "register" && onRegister) onRegister(registerData);
+    setError("");
+    setSuccess("");
+    
+    try {
+      setLoading(true);
+      
+      if (!loginData.email || !loginData.password) {
+        setError("Email e senha são obrigatórios");
+        return;
+      }
+      
+      await login(loginData.email, loginData.password);
+      setSuccess("Login realizado com sucesso!");
+      
+      // Fechar modal e notificar que login foi bem-sucedido
+      setTimeout(() => {
+        if (onLoginSuccess) onLoginSuccess();
+        onClose();
+      }, 1000);
+      
+    } catch (err) {
+      setError(err.message || "Erro ao fazer login");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -38,103 +57,66 @@ export default function AuthModal({ onClose, onLogin, onRegister }) {
           {/* cabeçalho sticky com o X de fechar */}
           <div className="sticky top-0 bg-white rounded-t-3xl border-b border-gray-100 flex items-center justify-between p-6 z-10">
             <h2 className="text-xl font-bold">
-              {mode === "login" ? "Login" : "Cadastro"}
+              Login
             </h2>
             <button onClick={onClose}>
               <X className="w-5 h-5" />
             </button>
           </div>
 
-          <form onSubmit={submit} className="p-6 space-y-4">
-            {mode === "login" ? (
-              <>
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Email
-                  </label>
-                  <Input
-                    name="email"
-                    type="email"
-                    value={loginData.email}
-                    onChange={set(loginData, setLoginData)}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Senha
-                  </label>
-                  <Input
-                    name="password"
-                    type="password"
-                    value={loginData.password}
-                    onChange={set(loginData, setLoginData)}
-                  />
-                </div>
-              </>
-            ) : (
-              <>
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Nome
-                  </label>
-                  <Input
-                    name="name"
-                    value={registerData.name}
-                    onChange={set(registerData, setRegisterData)}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Email
-                  </label>
-                  <Input
-                    name="email"
-                    type="email"
-                    value={registerData.email}
-                    onChange={set(registerData, setRegisterData)}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Senha
-                  </label>
-                  <Input
-                    name="password"
-                    type="password"
-                    value={registerData.password}
-                    onChange={set(registerData, setRegisterData)}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Confirmar senha
-                  </label>
-                  <Input
-                    name="confirm"
-                    type="password"
-                    value={registerData.confirm}
-                    onChange={set(registerData, setRegisterData)}
-                  />
-                </div>
-              </>
+          <form onSubmit={handleLogin} className="p-6 space-y-4">
+            {/* Mensagens de erro */}
+            {error && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                <span>{error}</span>
+              </div>
             )}
 
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4">
-              <Button type="submit" className="w-full sm:w-auto">
-                {mode === "login" ? "Entrar" : "Cadastrar"}
-              </Button>
-              <button
-                type="button"
-                className="text-sm text-teal-600 hover:underline"
-                onClick={() =>
-                  setMode(mode === "login" ? "register" : "login")
-                }
-              >
-                {mode === "login"
-                  ? "Não tem conta? Cadastre‑se"
-                  : "Já tem conta? Faça login"}
-              </button>
+            {/* Mensagens de sucesso */}
+            {success && (
+              <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm flex items-start gap-2">
+                <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                <span>{success}</span>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Email
+              </label>
+              <Input
+                name="email"
+                type="email"
+                value={loginData.email}
+                onChange={set(loginData, setLoginData)}
+                disabled={loading}
+                placeholder="seu@email.com"
+              />
             </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Senha
+              </label>
+              <Input
+                name="password"
+                type="password"
+                value={loginData.password}
+                onChange={set(loginData, setLoginData)}
+                disabled={loading}
+                placeholder="••••••••"
+              />
+            </div>
+
+            <div className="pt-4">
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Processando..." : "Entrar"}
+              </Button>
+            </div>
+
+            <p className="text-center text-sm text-gray-500">
+              Apenas funcionários podem acessar a plataforma.
+            </p>
           </form>
         </motion.div>
       </AnimatePresence>

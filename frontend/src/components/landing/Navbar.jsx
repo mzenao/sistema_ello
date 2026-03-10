@@ -1,18 +1,37 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, Phone, LogIn, LayoutDashboard } from "lucide-react";
+import { Menu, X, Phone, LogIn, LayoutDashboard, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
 import logo from "@/assets/logo_ello.png";
-import AuthModal from "@/components/internal/loginModal.jsx"; // import adicionado
+import AuthModal from "@/components/internal/loginModal.jsx";
+import { isAuthenticated, getStoredUser, logout } from "@/services/api";
 
 export default function Navbar({ onOpenBooking }) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [user, setUser] = useState(null);
-  const [showAuth, setShowAuth] = useState(false); // novo estado
+  const [showAuth, setShowAuth] = useState(false);
 
   const navigate = useNavigate();
+
+  // Verificar autenticação ao montar
+  useEffect(() => {
+    const checkAuth = () => {
+      if (isAuthenticated()) {
+        const storedUser = getStoredUser();
+        setUser(storedUser);
+      } else {
+        setUser(null);
+      }
+    };
+
+    checkAuth();
+
+    // Verificar mudanças no localStorage
+    window.addEventListener('storage', checkAuth);
+    return () => window.removeEventListener('storage', checkAuth);
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 50);
@@ -20,20 +39,21 @@ export default function Navbar({ onOpenBooking }) {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // 🔹 Simulação temporária de usuário logado
-  useEffect(() => {
-    const fakeUser = null; // depois vamos buscar do Flask
-    setUser(fakeUser);
-  }, []);
-
-  // handlers de autenticação (mock – trocar por chamadas reais)
-  const handleLogin = (credentials) => {
-    setUser({ full_name: credentials.email.split("@")[0] });
+  const handleLoginSuccess = () => {
+    const storedUser = getStoredUser();
+    setUser(storedUser);
     setShowAuth(false);
   };
-  const handleRegister = (data) => {
-    setUser({ full_name: data.name });
-    setShowAuth(false);
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      setUser(null);
+      setIsMobileMenuOpen(false);
+      navigate("/");
+    } catch (err) {
+      console.error("Erro ao fazer logout:", err);
+    }
   };
 
   const navItems = [
@@ -113,17 +133,26 @@ export default function Navbar({ onOpenBooking }) {
 
             
             {user ? (
-              <Link to="/admin">
+              <>
+                <Link to="/admin">
+                  <Button
+                    className="bg-teal-600 hover:bg-teal-700 text-white rounded-full px-6"
+                  >
+                    <LayoutDashboard className="w-4 h-4 mr-2" />
+                    Dashboard
+                  </Button>
+                </Link>
                 <Button
+                  onClick={handleLogout}
                   className="bg-teal-600 hover:bg-teal-700 text-white rounded-full px-6"
                 >
-                  <LayoutDashboard className="w-4 h-4" />
-                  Dashboard
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Sair
                 </Button>
-              </Link>
+              </>
             ) : (
               <Button
-                onClick={() => setShowAuth(true)} // abre modal
+                onClick={() => setShowAuth(true)}
                 className="bg-teal-600 hover:bg-teal-700 text-white rounded-full px-6"
               >
                 <LogIn className="w-4 h-4 mr-2" />
@@ -170,19 +199,26 @@ export default function Navbar({ onOpenBooking }) {
               ))}
 
               {user ? (
-                <Link
-                  to="/dashboard"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="rounded-full gap-2 w-full justify-center mb-2"
+                <>
+                  <Link
+                    to="/admin"
+                    onClick={() => setIsMobileMenuOpen(false)}
                   >
-                    <LayoutDashboard className="w-4 h-4" />
-                    Dashboard
+                    <Button
+                      className="bg-teal-600 text-white rounded-full w-full mb-2"
+                    >
+                      <LayoutDashboard className="w-4 h-4" />
+                      Dashboard
+                    </Button>
+                  </Link>
+                  <Button
+                    onClick={handleLogout}
+                    className="bg-teal-600 text-white rounded-full w-full mb-2"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Sair
                   </Button>
-                </Link>
+                </>
               ) : (
                 <Button
                   onClick={() => {
@@ -215,8 +251,7 @@ export default function Navbar({ onOpenBooking }) {
       {showAuth && (
         <AuthModal
           onClose={() => setShowAuth(false)}
-          onLogin={handleLogin}
-          onRegister={handleRegister}
+          onLoginSuccess={handleLoginSuccess}
         />
       )}
     </>

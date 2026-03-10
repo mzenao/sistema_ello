@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import logo from "@/assets/logo_ello.png";
+import { getStoredUser, logout } from "@/services/api";
 import {
   LayoutDashboard,
   Calendar,
@@ -17,19 +18,12 @@ import {
 const navItems = [
   { name: "Dashboard", icon: LayoutDashboard, label: "Dashboard", to: "/admin" },
   { name: "Calendario", icon: Calendar, label: "Calendário", to: "/admin/calendario" },
-  { name: "Agendamentos", icon: Calendar, label: "Agendamentos", to: "/admin/agendamentos" },
+  { name: "Agendamentos", icon: Stethoscope, label: "Agendamentos", to: "/admin/agendamentos" },
   { name: "Pacientes", icon: Users, label: "Pacientes", to: "/admin/pacientes" },
   { name: "Financeiro", icon: TrendingUp, label: "Financeiro", to: "/admin/financeiro" },
   { name: "Relatorios", icon: BarChart3, label: "Relatórios", to: "/admin/relatorios" },
   { name: "Funcionarios", icon: ContactRound, label: "Funcionários", to: "/admin/funcionarios" },
 ];
-
-// MOCK de usuário (protótipo) — depois você troca por API/login real
-const mockUser = {
-  full_name: "Funcionário",
-  email: "funcionario@clinica.com",
-  role: "admin", // "admin" | "recepcionista"
-};
 
 export default function AdminLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -52,12 +46,12 @@ export default function AdminLayout({ children }) {
   }, [location.pathname]);
 
   useEffect(() => {
-    // protótipo: "carrega" usuário fake
-    setUser(mockUser);
+    setUser(getStoredUser());
   }, []);
 
-  const handleLogout = () => {
-    // protótipo: só volta pro site público
+  const handleLogout = async () => {
+    await logout();
+    setUser(null);
     navigate("/", { replace: true });
   };
 

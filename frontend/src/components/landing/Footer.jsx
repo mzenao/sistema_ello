@@ -44,9 +44,9 @@ export default function Footer() {
             </p>
 
             <div className="space-y-1 text-sm text-gray-400">
-              <p>CNPJ: 00.000.000/0001-00</p>
-              <p>Responsável Técnico: Dr. </p>
-              <p>CRO-MG: 12345</p>
+              <p>CNPJ: 19.857.893/0001-14</p>
+              <p>Responsável Técnico: Dr. Glauber Cortes</p>
+              <p>CRO-MG: 41.486</p>
             </div>
           </div>
 
@@ -68,7 +68,7 @@ export default function Footer() {
             <ul className="space-y-3 text-sm text-gray-400">
               <li>Av. Senhor dos Passos 1366</li>
               <li>São Pedro, Juiz de Fora - MG</li>
-              <li>(32) 99999-9999</li>
+              <li>+55 32 98402-8138</li>
               <li>contato@clinica.com</li>
             </ul>
           </div>

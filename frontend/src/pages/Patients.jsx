@@ -4,30 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import PatientModal from "@/components/internal/PatientModal.jsx";
-
-const STORAGE_KEY = "odontoello_patients_v1";
-
-function safeParse(json, fallback) {
-  try {
-    const data = JSON.parse(json);
-    return Array.isArray(data) ? data : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function loadPatients() {
-  return safeParse(localStorage.getItem(STORAGE_KEY), []);
-}
-
-function savePatients(list) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-}
-
-function uid() {
-  // id simples e suficiente pra protótipo
-  return `${Date.now()}_${Math.random().toString(16).slice(2)}`;
-}
+import { listPatients, createPatient, updatePatient, deletePatient } from "@/services/api";
 
 export default function Pacientes() {
   const [patients, setPatients] = useState([]);
@@ -36,39 +13,19 @@ export default function Pacientes() {
   const [showModal, setShowModal] = useState(false);
   const [editingPatient, setEditingPatient] = useState(null);
 
-  const load = () => {
+  const load = async () => {
     setLoading(true);
-    const data = loadPatients()
-      // equivalente ao "-created_date" (mais novos primeiro)
-      .sort((a, b) => (b.created_date || "").localeCompare(a.created_date || ""));
-    setPatients(data);
-    setLoading(false);
+    try {
+      const data = await listPatients();
+      setPatients(data);
+    } catch (err) {
+      console.error("Erro ao carregar pacientes:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    // seed opcional (se quiser, comenta esse bloco)
-    const current = loadPatients();
-    if (current.length === 0) {
-      const seeded = [
-        {
-          id: uid(),
-          name: "Maria Clara Silva",
-          phone: "(32) 99999-1111",
-          email: "maria@email.com",
-          health_plan: "Unimed",
-          created_date: new Date().toISOString(),
-        },
-        {
-          id: uid(),
-          name: "João Pedro Santos",
-          phone: "(32) 99999-2222",
-          email: "joao@email.com",
-          health_plan: "Particular",
-          created_date: new Date(Date.now() - 86400000).toISOString(),
-        },
-      ];
-      savePatients(seeded);
-    }
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -87,37 +44,20 @@ export default function Pacientes() {
 
   const handleDelete = async (id) => {
     if (!confirm("Remover este paciente?")) return;
-
-    const next = patients.filter((p) => p.id !== id);
-    setPatients(next);
-    savePatients(next);
+    try {
+      await deletePatient(id);
+      load();
+    } catch (err) {
+      alert("Erro ao remover paciente: " + err.message);
+    }
   };
 
-  // PatientModal deve chamar onSave(patientData)
-  // - Se for edição: { id: editingPatient.id, ...campos }
-  // - Se for novo: { name, phone, email, health_plan }
-  const handleSave = (patientData) => {
-    const now = new Date().toISOString();
-
-    // edição
+  const handleSave = async (patientData) => {
     if (patientData?.id) {
-      const next = patients.map((p) =>
-        p.id === patientData.id ? { ...p, ...patientData } : p
-      );
-      setPatients(next);
-      savePatients(next);
-      return;
+      await updatePatient(patientData.id, patientData);
+    } else {
+      await createPatient(patientData);
     }
-
-    // novo
-    const newPatient = {
-      id: uid(),
-      created_date: now,
-      ...patientData,
-    };
-    const next = [newPatient, ...patients];
-    setPatients(next);
-    savePatients(next);
   };
 
   return (
@@ -222,9 +162,8 @@ export default function Pacientes() {
         <PatientModal
           patient={editingPatient}
           onClose={() => setShowModal(false)}
-          onSave={(data) => {
-            handleSave(data);
-            setShowModal(false);
+          onSave={async (data) => {
+            await handleSave(data);
             load();
           }}
         />

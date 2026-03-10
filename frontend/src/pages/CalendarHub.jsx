@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronLeft,
@@ -8,7 +8,14 @@ import {
   Stethoscope,
   Receipt,
   CheckSquare,
+  Plus,
+  Edit2,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import TaskModal from "@/components/internal/taskModal";
+import AppointmentModal from "@/components/internal/appointmentModal";
+import TransactionModal from "@/components/internal/transactionModal";
+import { listAppointments, listTransactions, listTasks, createTask, updateTask, createTransaction, updateTransaction } from "@/services/api";
 
 const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 const MONTHS = [
@@ -19,6 +26,16 @@ const MONTHS = [
 function pad2(n) {
   return String(n).padStart(2, "0");
 }
+
+function getTodayISO() {
+  // Pega a data local sem problemas de fuso horário
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, "0");
+  const dd = String(today.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 function toISODate(y, m, d) {
   return `${y}-${pad2(m + 1)}-${pad2(d)}`;
 }
@@ -67,59 +84,6 @@ const TYPE_META = {
   },
 };
 
-// MOCK (depois você troca por fetch/estado global)
-const mockEvents = [
-  {
-    id: "a1",
-    type: "appointment",
-    date: "2026-03-04",
-    time: "09:00",
-    title: "Consulta · João Pedro",
-    status: "confirmado",
-    meta: { phone: "(32) 99999-9999", service: "Consulta" },
-  },
-  {
-    id: "a2",
-    type: "appointment",
-    date: "2026-03-04",
-    time: "14:30",
-    title: "Clareamento · Maria Clara",
-    status: "agendado",
-    meta: { service: "Clareamento" },
-  },
-  {
-    id: "b1",
-    type: "bill",
-    date: "2026-03-04",
-    title: "Fornecedor · Material",
-    status: "pendente",
-    amount: 320.5,
-  },
-  {
-    id: "t1",
-    type: "task",
-    date: "2026-03-04",
-    title: "Conferir estoque (luvas/máscaras)",
-    status: "aberta",
-  },
-  {
-    id: "b2",
-    type: "bill",
-    date: "2026-03-10",
-    title: "Aluguel",
-    status: "pendente",
-    amount: 1800,
-  },
-  {
-    id: "a3",
-    type: "appointment",
-    date: "2026-03-10",
-    time: "10:00",
-    title: "Canal · Ricardo",
-    status: "confirmado",
-    meta: { service: "Canal" },
-  },
-];
 
 function formatMoneyBR(v) {
   if (typeof v !== "number") return "";
@@ -147,17 +111,95 @@ function formatBRDate(iso) {
 
 export default function CalendarHub({
   title = "Calendário",
-  events = mockEvents,
+  events: externalEvents = [],
 }) {
+  const [events, setEvents] = useState(externalEvents);
+  const [loading, setLoading] = useState(true);
+  
   const today = new Date();
   const [calYear, setCalYear] = useState(today.getFullYear());
   const [calMonth, setCalMonth] = useState(today.getMonth());
 
-  const [selectedISO, setSelectedISO] = useState(
-    toISODate(today.getFullYear(), today.getMonth(), today.getDate())
-  );
+  const [selectedISO, setSelectedISO] = useState(getTodayISO());
 
   const [filter, setFilter] = useState("all"); // all | appointment | bill | task
+  const [showAll, setShowAll] = useState(false);
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [editingTask, setEditingTask] = useState(null);
+  const [showAppointmentModal, setShowAppointmentModal] = useState(false);
+  const [editingAppointment, setEditingAppointment] = useState(null);
+  const [showTransactionModal, setShowTransactionModal] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState(null);
+
+  // Buscar eventos da API se não foram passados externamente
+  useEffect(() => {
+    if (externalEvents.length > 0) {
+      setEvents(externalEvents);
+      setLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+
+    async function loadEvents() {
+      try {
+        setLoading(true);
+        
+        const [appts, txns, tasks] = await Promise.all([
+          listAppointments({ limit: 500, signal: controller.signal }).catch(() => []),
+          listTransactions({ limit: 500, signal: controller.signal }).catch(() => []),
+          listTasks({ signal: controller.signal }).catch(() => []),
+        ]);
+
+        // Transformar dados para formato do calendário
+        const transformedEvents = [];
+
+        // Adicionar agendamentos
+        const appointmentsList = Array.isArray(appts) ? appts : appts?.data ?? [];
+        transformedEvents.push(...appointmentsList.map((a) => ({
+          id: `appt-${a.id}`,
+          type: "appointment",
+          date: a.date,
+          time: a.time ? a.time.substring(0, 5) : undefined,
+          title: `${a.service} · ${a.patient_name}`,
+          status: a.status,
+          meta: { service: a.service, phone: a.patient_phone },
+        })));
+
+        // Adicionar transações como "contas" (bills)
+        const transactionsList = Array.isArray(txns) ? txns : txns?.data ?? [];
+        transformedEvents.push(...transactionsList.map((t) => ({
+          id: `txn-${t.id}`,
+          type: "bill",
+          date: t.date,
+          title: t.description || "Transação",
+          status: t.status,
+          amount: Number(t.amount) || 0,
+        })));
+
+        // Adicionar tarefas
+        const tasksList = Array.isArray(tasks) ? tasks : tasks?.data ?? [];
+        transformedEvents.push(...tasksList.map((t) => ({
+          id: `task-${t.id}`,
+          type: "task",
+          date: t.date,
+          title: t.title,
+          status: t.status,
+        })));
+
+        setEvents(transformedEvents);
+      } catch (err) {
+        if (err?.name !== "AbortError") {
+          console.error("Erro ao carregar eventos do calendário:", err);
+        }
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadEvents();
+    return () => controller.abort();
+  }, [externalEvents]);
 
   const daysInMonth = getDaysInMonth(calYear, calMonth);
   const firstDay = getFirstDayOfMonth(calYear, calMonth);
@@ -183,6 +225,9 @@ export default function CalendarHub({
     if (filter === "all") return selectedEventsRaw;
     return selectedEventsRaw.filter((e) => e.type === filter);
   }, [selectedEventsRaw, filter]);
+
+  const displayedEvents = showAll ? selectedEvents : selectedEvents.slice(0, 3);
+  const hasMoreItems = selectedEvents.length > 3;
 
   const dayCounts = useMemo(() => {
     const all = selectedEventsRaw;
@@ -213,6 +258,219 @@ export default function CalendarHub({
 
   const openDay = (iso) => {
     setSelectedISO(iso);
+    setShowAll(false);
+  };
+
+  const handleSaveTask = async (taskData) => {
+    try {
+      if (taskData.id) {
+        // Editar tarefa existente
+        await updateTask(taskData.id, taskData);
+      } else {
+        // Criar nova tarefa
+        await createTask(taskData);
+      }
+      
+      // Recarregar eventos
+      setLoading(true);
+      const [appts, txns, tasks] = await Promise.all([
+        listAppointments({ limit: 500 }).catch(() => []),
+        listTransactions({ limit: 500 }).catch(() => []),
+        listTasks().catch(() => []),
+      ]);
+
+      const transformedEvents = [];
+
+      const appointmentsList = Array.isArray(appts) ? appts : appts?.data ?? [];
+      transformedEvents.push(...appointmentsList.map((a) => ({
+        id: `appt-${a.id}`,
+        type: "appointment",
+        date: a.date,
+        time: a.time ? a.time.substring(0, 5) : undefined,
+        title: `${a.service} · ${a.patient_name}`,
+        status: a.status,
+        meta: { service: a.service, phone: a.patient_phone },
+      })));
+
+      const transactionsList = Array.isArray(txns) ? txns : txns?.data ?? [];
+      transformedEvents.push(...transactionsList.map((t) => ({
+        id: `txn-${t.id}`,
+        type: "bill",
+        date: t.date,
+        title: t.description || "Transação",
+        status: t.status,
+        amount: Number(t.amount) || 0,
+      })));
+
+      const tasksList = Array.isArray(tasks) ? tasks : tasks?.data ?? [];
+      transformedEvents.push(...tasksList.map((t) => ({
+        id: `task-${t.id}`,
+        type: "task",
+        date: t.date,
+        title: t.title,
+        status: t.status,
+      })));
+
+      setEvents(transformedEvents);
+      setShowTaskModal(false);
+      setEditingTask(null);
+      setLoading(false);
+    } catch (err) {
+      console.error("Erro ao salvar tarefa:", err);
+      alert("Erro ao salvar tarefa");
+    }
+  };
+
+  const handleSaveTransaction = async (transactionData) => {
+    try {
+      if (transactionData.id) {
+        // Editar transação existente
+        await updateTransaction(transactionData.id, transactionData);
+      } else {
+        // Criar nova transação
+        await createTransaction(transactionData);
+      }
+      
+      // Recarregar eventos
+      setLoading(true);
+      const [appts, txns, tasks] = await Promise.all([
+        listAppointments({ limit: 500 }).catch(() => []),
+        listTransactions({ limit: 500 }).catch(() => []),
+        listTasks().catch(() => []),
+      ]);
+
+      const transformedEvents = [];
+
+      const appointmentsList = Array.isArray(appts) ? appts : appts?.data ?? [];
+      transformedEvents.push(...appointmentsList.map((a) => ({
+        id: `appt-${a.id}`,
+        type: "appointment",
+        date: a.date,
+        time: a.time ? a.time.substring(0, 5) : undefined,
+        title: `${a.service} · ${a.patient_name}`,
+        status: a.status,
+        meta: { service: a.service, phone: a.patient_phone },
+      })));
+
+      const transactionsList = Array.isArray(txns) ? txns : txns?.data ?? [];
+      transformedEvents.push(...transactionsList.map((t) => ({
+        id: `txn-${t.id}`,
+        type: "bill",
+        date: t.date,
+        title: t.description || "Transação",
+        status: t.status,
+        amount: Number(t.amount) || 0,
+      })));
+
+      const tasksList = Array.isArray(tasks) ? tasks : tasks?.data ?? [];
+      transformedEvents.push(...tasksList.map((t) => ({
+        id: `task-${t.id}`,
+        type: "task",
+        date: t.date,
+        title: t.title,
+        status: t.status,
+      })));
+
+      setEvents(transformedEvents);
+      setShowTransactionModal(false);
+      setEditingTransaction(null);
+      setLoading(false);
+    } catch (err) {
+      console.error("Erro ao salvar transação:", err);
+      alert("Erro ao salvar transação");
+    }
+  };
+
+  const handleSaveAppointment = async () => {
+    try {
+      // Recarregar eventos após salvar
+      setLoading(true);
+      const [appts, txns, tasks] = await Promise.all([
+        listAppointments({ limit: 500 }).catch(() => []),
+        listTransactions({ limit: 500 }).catch(() => []),
+        listTasks().catch(() => []),
+      ]);
+
+      const transformedEvents = [];
+
+      const appointmentsList = Array.isArray(appts) ? appts : appts?.data ?? [];
+      transformedEvents.push(...appointmentsList.map((a) => ({
+        id: `appt-${a.id}`,
+        type: "appointment",
+        date: a.date,
+        time: a.time ? a.time.substring(0, 5) : undefined,
+        title: `${a.service} · ${a.patient_name}`,
+        status: a.status,
+        meta: { service: a.service, phone: a.patient_phone },
+      })));
+
+      const transactionsList = Array.isArray(txns) ? txns : txns?.data ?? [];
+      transformedEvents.push(...transactionsList.map((t) => ({
+        id: `txn-${t.id}`,
+        type: "bill",
+        date: t.date,
+        title: t.description || "Transação",
+        status: t.status,
+        amount: Number(t.amount) || 0,
+      })));
+
+      const tasksList = Array.isArray(tasks) ? tasks : tasks?.data ?? [];
+      transformedEvents.push(...tasksList.map((t) => ({
+        id: `task-${t.id}`,
+        type: "task",
+        date: t.date,
+        title: t.title,
+        status: t.status,
+      })));
+
+      setEvents(transformedEvents);
+      setShowAppointmentModal(false);
+      setEditingAppointment(null);
+      setLoading(false);
+    } catch (err) {
+      console.error("Erro ao salvar agendamento:", err);
+      alert("Erro ao salvar agendamento");
+    }
+  };
+
+  const handleEditEvent = (event) => {
+    if (event.type === "task") {
+      setEditingTask(event);
+      setShowTaskModal(true);
+    } else if (event.type === "appointment") {
+      // Converter o formato do evento para o formato do AppointmentModal
+      const appointmentData = {
+        id: event.id,
+        patient_name: event.title?.split(" · ")[1] || event.title,
+        patient_phone: event.meta?.phone || "",
+        patient_email: "",
+        service: event.meta?.service?.toLowerCase() || "consulta",
+        date: event.date,
+        time: event.time,
+        status: event.status,
+        dentist: "",
+        value: "",
+        notes: "",
+      };
+      setEditingAppointment(appointmentData);
+      setShowAppointmentModal(true);
+    } else if (event.type === "bill") {
+      // Converter o formato do evento para o formato do TransactionModal
+      const transactionData = {
+        id: event.id,
+        type: "despesa",
+        category: "outro",
+        description: event.title,
+        amount: event.amount || 0,
+        date: event.date,
+        payment_method: "pix",
+        status: event.status === "pendente" ? "pendente" : "pago",
+        patient_name: "",
+        notes: "",
+      };
+      setEditingTransaction(transactionData);
+      setShowTransactionModal(true);
+    }
   };
 
   const monthLabel = `${MONTHS[calMonth]} ${calYear}`;
@@ -378,13 +636,13 @@ export default function CalendarHub({
 
             <div className="flex flex-wrap gap-2 mt-3">
               <span className={`text-xs px-2 py-1 rounded-lg ${TYPE_META.appointment.badge}`}>
-                {dayCounts.appointment} agendamentos
+                {dayCounts.appointment} agendamento(s)
               </span>
               <span className={`text-xs px-2 py-1 rounded-lg ${TYPE_META.bill.badge}`}>
-                {dayCounts.bill} contas
+                {dayCounts.bill} conta(s)
               </span>
               <span className={`text-xs px-2 py-1 rounded-lg ${TYPE_META.task.badge}`}>
-                {dayCounts.task} tarefas
+                {dayCounts.task} tarefa(s)
               </span>
             </div>
           </div>
@@ -401,18 +659,21 @@ export default function CalendarHub({
 
         <div className="p-5">
           {/* Filters */}
-          <div className="flex gap-2 bg-gray-100 p-1 rounded-xl">
+          <div className="flex flex-wrap gap-2 bg-gray-100 p-1 rounded-xl">
             {[
               { key: "all", label: "Tudo" },
-              { key: "appointment", label: "Agendamento" },
-              { key: "bill", label: "Contas" },
-              { key: "task", label: "Tarefas" },
+              { key: "appointment", label: "Agendamento(s)" },
+              { key: "bill", label: "Conta(s)" },
+              { key: "task", label: "Tarefa(s)" },
             ].map((t) => (
               <button
                 key={t.key}
                 type="button"
-                onClick={() => setFilter(t.key)}
-                className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
+                onClick={() => {
+                  setFilter(t.key);
+                  setShowAll(false);
+                }}
+                className={`px-3 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap ${
                   filter === t.key ? "bg-white shadow text-gray-900" : "text-gray-600 hover:text-gray-900"
                 }`}
               >
@@ -431,12 +692,12 @@ export default function CalendarHub({
             ) : selectedEvents.length === 0 ? (
               <div className="text-center py-10 text-gray-400">
                 <p className="font-medium">Nada por aqui</p>
-                <p className="text-sm">Nenhum item para este filtro</p>
+                <p className="text-sm mt-2">Clique no botão abaixo para adicionar uma tarefa</p>
               </div>
             ) : (
               <div className="space-y-3">
                 <AnimatePresence initial={false}>
-                  {selectedEvents.map((e) => {
+                  {displayedEvents.map((e) => {
                     const meta = TYPE_META[e.type] || TYPE_META.task;
                     const Icon = meta.icon;
                     return (
@@ -446,7 +707,7 @@ export default function CalendarHub({
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -8 }}
                         transition={{ duration: 0.2 }}
-                        className="p-4 rounded-2xl border border-gray-100 hover:bg-gray-50"
+                        className="p-4 rounded-2xl border border-gray-100 hover:bg-gray-50 transition-all"
                       >
                         <div className="flex items-start gap-3">
                           <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center flex-shrink-0">
@@ -458,11 +719,24 @@ export default function CalendarHub({
                               <p className="font-semibold text-gray-900 truncate">
                                 {e.title}
                               </p>
-                              {e.time && (
-                                <span className="text-xs px-2 py-1 rounded-lg bg-gray-100 text-gray-700 font-medium flex-shrink-0">
-                                  {e.time}
-                                </span>
-                              )}
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                {e.time && (
+                                  <span className="text-xs px-2 py-1 rounded-lg bg-gray-100 text-gray-700 font-medium">
+                                    {e.time}
+                                  </span>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={(ev) => {
+                                    ev.stopPropagation();
+                                    handleEditEvent(e);
+                                  }}
+                                  className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-teal-600 transition-colors"
+                                  title="Editar"
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </button>
+                              </div>
                             </div>
 
                             <div className="flex flex-wrap gap-2 mt-2">
@@ -497,11 +771,84 @@ export default function CalendarHub({
                     );
                   })}
                 </AnimatePresence>
+
+                {/* Botão camuflado de exibir mais */}
+                {hasMoreItems && !showAll && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAll(true)}
+                    className="w-full py-2 text-xs text-gray-400 hover:text-gray-600 transition-colors text-center"
+                  >
+                    +{selectedEvents.length - 3} item(ns) · clique para ver mais
+                  </button>
+                )}
+
+                {hasMoreItems && showAll && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAll(false)}
+                    className="w-full py-2 text-xs text-gray-400 hover:text-gray-600 transition-colors text-center"
+                  >
+                    mostrar menos
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Botão Nova Tarefa */}
+            {selectedISO && (
+              <div className="mt-4">
+                <Button
+                  onClick={() => {
+                    setEditingTask({ date: selectedISO });
+                    setShowTaskModal(true);
+                  }}
+                  className="w-full bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white rounded-xl gap-2 transition-all hover:shadow-lg"
+                >
+                  <Plus className="w-4 h-4" />
+                  Nova Tarefa
+                </Button>
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* Modal de Tarefa */}
+      {showTaskModal && (
+        <TaskModal
+          task={editingTask}
+          onClose={() => {
+            setShowTaskModal(false);
+            setEditingTask(null);
+          }}
+          onSave={handleSaveTask}
+        />
+      )}
+
+      {/* Modal de Agendamento */}
+      {showAppointmentModal && (
+        <AppointmentModal
+          appointment={editingAppointment}
+          onClose={() => {
+            setShowAppointmentModal(false);
+            setEditingAppointment(null);
+          }}
+          onSave={handleSaveAppointment}
+        />
+      )}
+
+      {/* Modal de Transação/Conta */}
+      {showTransactionModal && (
+        <TransactionModal
+          transaction={editingTransaction}
+          onClose={() => {
+            setShowTransactionModal(false);
+            setEditingTransaction(null);
+          }}
+          onSave={handleSaveTransaction}
+        />
+      )}
     </div>
   );
 }

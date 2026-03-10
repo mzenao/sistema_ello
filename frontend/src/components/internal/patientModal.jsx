@@ -52,12 +52,14 @@ export default function PatientModal({ patient, onClose, onSave }) {
     }
 
     setSaving(true);
-
-    // Aqui apenas envia os dados para o componente pai
-    // O Pacientes.jsx decide se é create ou update
-    onSave(form);
-
-    setSaving(false);
+    try {
+      await onSave(form);
+      onClose();
+    } catch (err) {
+      alert("Erro ao salvar paciente: " + err.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (

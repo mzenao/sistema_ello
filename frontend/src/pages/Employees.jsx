@@ -4,34 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import EmployeeModal from "@/components/internal/EmployeeModal.jsx";
-
-// Chave para armazenar funcionários no localStorage
-const STORAGE_KEY = "odontoello_employees_v1";
-
-// Parse seguro de JSON com fallback
-function safeParse(json, fallback) {
-  try {
-    const data = JSON.parse(json);
-    return Array.isArray(data) ? data : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-// Carrega lista de funcionários do localStorage
-function loadEmployees() {
-  return safeParse(localStorage.getItem(STORAGE_KEY), []);
-}
-
-// Salva lista de funcionários no localStorage
-function saveEmployees(list) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-}
-
-// Gera ID único para novo funcionário
-function uid() {
-  return `${Date.now()}_${Math.random().toString(16).slice(2)}`;
-}
+import { listWorkers, createWorker, updateWorker, deleteWorker } from "@/services/api.js";
 
 export default function Funcionarios() {
   // Estado da lista de funcionários
@@ -49,61 +22,32 @@ export default function Funcionarios() {
   // Funcionário sendo editado (null = criar novo)
   const [editingEmployee, setEditingEmployee] = useState(null);
 
-  // Função para carregar funcionários do localStorage
-  const load = () => {
-    setLoading(true);
-    const data = loadEmployees()
-      // Ordena por data de criação (mais novos primeiro)
-      .sort((a, b) => (b.created_date || "").localeCompare(a.created_date || ""));
-    setEmployees(data);
-    setLoading(false);
+  // Erro na operação
+  const [error, setError] = useState("");
+
+  // Função para carregar funcionários da API
+  const loadEmployees = async () => {
+    try {
+      setLoading(true);
+      setError("");
+      const data = await listWorkers();
+      // Ordena por nome
+      setEmployees(Array.isArray(data) ? data.sort((a, b) => (a.name || "").localeCompare(b.name || "")) : []);
+    } catch (err) {
+      setError("Erro ao carregar funcionários");
+      console.error(err);
+      setEmployees([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Carrega funcionários ao montar + seed de dados
+  // Carrega funcionários ao montar
   useEffect(() => {
-    // Verifica se há funcionários salvos
-    const current = loadEmployees();
-    if (current.length === 0) {
-      // Se vazio, cria funcionários de exemplo
-      const seeded = [
-        {
-          id: uid(),
-          name: "Dr. Carlos Mendes",
-          phone: "(32) 99999-1001",
-          email: "carlos@clinica.com",
-          role: "Dentista",
-          specialty: "Implantodontia",
-          cpf: "123.456.789-00",
-          created_date: new Date().toISOString(),
-        },
-        {
-          id: uid(),
-          name: "Ana Silva",
-          phone: "(32) 99999-1002",
-          email: "ana@clinica.com",
-          role: "Auxiliar de Consultório",
-          specialty: "Geral",
-          cpf: "987.654.321-00",
-          created_date: new Date(Date.now() - 86400000).toISOString(),
-        },
-        {
-          id: uid(),
-          name: "Fernanda Costa",
-          phone: "(32) 99999-1003",
-          email: "fernanda@clinica.com",
-          role: "Recepcionista",
-          specialty: "Agendamento",
-          cpf: "456.789.123-00",
-          created_date: new Date(Date.now() - 172800000).toISOString(),
-        },
-      ];
-      saveEmployees(seeded);
-    }
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    loadEmployees();
   }, []);
 
-  // Filtra funcionários por nome, telefone, email ou função
+  // Filtra funcionários por nome, telefone, email ou cargo
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return employees;
@@ -112,12 +56,12 @@ export default function Funcionarios() {
       const name = (e.name || "").toLowerCase();
       const phone = (e.phone || "");
       const email = (e.email || "").toLowerCase();
-      const role = (e.role || "").toLowerCase();
+      const ocupance = (e.ocupance || "").toLowerCase();
       return (
         name.includes(q) || 
         phone.includes(q) || 
         email.includes(q) || 
-        role.includes(q)
+        ocupance.includes(q)
       );
     });
   }, [employees, search]);
@@ -126,36 +70,39 @@ export default function Funcionarios() {
   const handleDelete = async (id) => {
     if (!confirm("Remover este funcionário?")) return;
 
-    const next = employees.filter((e) => e.id !== id);
-    setEmployees(next);
-    saveEmployees(next);
+    try {
+      setError("");
+      await deleteWorker(id);
+      setEmployees(employees.filter((e) => e.id !== id));
+    } catch (err) {
+      setError("Erro ao deletar funcionário");
+      console.error(err);
+    }
   };
 
   // Salva novo funcionário ou edita existente
-  // - Se tiver ID: atualiza dados do funcionário
-  // - Se não tiver ID: cria novo funcionário com ID único e data
-  const handleSave = (employeeData) => {
-    const now = new Date().toISOString();
-
-    // Edição - atualiza funcionário existente
-    if (employeeData?.id) {
-      const next = employees.map((e) =>
-        e.id === employeeData.id ? { ...e, ...employeeData } : e
-      );
-      setEmployees(next);
-      saveEmployees(next);
-      return;
+  const handleSave = async (employeeData) => {
+    try {
+      setError("");
+      
+      if (employeeData?.id) {
+        // Edição
+        await updateWorker(employeeData.id, employeeData);
+        setEmployees(employees.map((e) =>
+          e.id === employeeData.id ? employeeData : e
+        ));
+      } else {
+        // Criação
+        const newEmployee = await createWorker(employeeData);
+        setEmployees([...employees, newEmployee].sort((a, b) => (a.name || "").localeCompare(b.name || "")));
+      }
+      
+      setShowModal(false);
+      setEditingEmployee(null);
+    } catch (err) {
+      setError(err.message || "Erro ao salvar funcionário");
+      console.error(err);
     }
-
-    // Novo - cria funcionário novo
-    const newEmployee = {
-      id: uid(),
-      created_date: now,
-      ...employeeData,
-    };
-    const next = [newEmployee, ...employees];
-    setEmployees(next);
-    saveEmployees(next);
   };
 
   return (
@@ -183,6 +130,13 @@ export default function Funcionarios() {
           <Plus className="w-4 h-4" /> Novo Funcionário
         </Button>
       </div>
+
+      {/* Mensagem de erro */}
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+          {error}
+        </div>
+      )}
 
       {/* Card com lista/tabela de funcionários */}
       <Card className="border-0 shadow-sm">
@@ -230,10 +184,10 @@ export default function Funcionarios() {
                   </div>
 
                   {/* Badge com cargo do funcionário */}
-                  {employee.role && (
+                  {employee.ocupance && (
                     <span className="text-xs bg-teal-100 text-teal-700 px-2 py-1 rounded-lg hidden sm:inline-flex items-center gap-1">
                       <Briefcase className="w-3 h-3" />
-                      {employee.role}
+                      {employee.ocupance}
                     </span>
                   )}
 
@@ -273,12 +227,11 @@ export default function Funcionarios() {
       {showModal && (
         <EmployeeModal
           employee={editingEmployee}
-          onClose={() => setShowModal(false)}
-          onSave={(data) => {
-            handleSave(data);
+          onClose={() => {
             setShowModal(false);
-            load();
+            setEditingEmployee(null);
           }}
+          onSave={handleSave}
         />
       )}
     </div>

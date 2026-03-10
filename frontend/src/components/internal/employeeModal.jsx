@@ -28,10 +28,11 @@ export default function EmployeeModal({ employee, onClose, onSave }) {
       name: "",
       phone: "",
       email: "",
+      password: "",
       cpf: "",
-      role: "Auxiliar de Consultório",
-      specialty: "Geral",
-      hire_date: "",
+      ocupance: "Auxiliar de Consultório",
+      speciality: "Geral",
+      admission_date: "",
       salary: "",
       notes: "",
     };
@@ -41,13 +42,20 @@ export default function EmployeeModal({ employee, onClose, onSave }) {
 
   const [form, setForm] = useState(initial);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
     setSaving(true);
-    await onSave({ ...form, id: employee?.id });
-    setSaving(false);
+    try {
+      await onSave({ ...form, id: employee?.id });
+    } catch (err) {
+      setError(err.message || "Erro ao salvar funcionário");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -71,6 +79,12 @@ export default function EmployeeModal({ employee, onClose, onSave }) {
           </div>
 
           <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            {error && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                {error}
+              </div>
+            )}
+            
             <div className="grid sm:grid-cols-2 gap-4">
               {/* coluna 1 */}
               <div>
@@ -78,15 +92,17 @@ export default function EmployeeModal({ employee, onClose, onSave }) {
                   Nome *
                 </label>
                 <Input
+                  required
                   value={form.name}
                   onChange={(e) => set("name", e.target.value)}
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">
-                  Telefone
+                  Telefone *
                 </label>
                 <Input
+                  required
                   value={form.phone}
                   onChange={(e) => set("phone", e.target.value)}
                 />
@@ -100,12 +116,27 @@ export default function EmployeeModal({ employee, onClose, onSave }) {
                   onChange={(e) => set("email", e.target.value)}
                 />
               </div>
+
+              {!employee && (
+                <div>
+                  <label className="block text-sm font-medium mb-1">Senha *</label>
+                  <Input
+                    type="password"
+                    required
+                    minLength={6}
+                    value={form.password}
+                    onChange={(e) => set("password", e.target.value)}
+                    placeholder="Mínimo 6 caracteres"
+                  />
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium mb-1">CPF</label>
                 <Input
                   value={form.cpf}
                   onChange={(e) => set("cpf", e.target.value)}
-                  placeholder="000.000.000-00"
+                  placeholder="000.000.000-00 (opcional)"
                 />
               </div>
 
@@ -114,8 +145,9 @@ export default function EmployeeModal({ employee, onClose, onSave }) {
                   Cargo *
                 </label>
                 <select
-                  value={form.role}
-                  onChange={(e) => set("role", e.target.value)}
+                  required
+                  value={form.ocupance}
+                  onChange={(e) => set("ocupance", e.target.value)}
                   className="w-full px-3 py-2 border rounded-lg"
                 >
                   {ROLES.map((r) => (
@@ -125,13 +157,14 @@ export default function EmployeeModal({ employee, onClose, onSave }) {
                   ))}
                 </select>
               </div>
+
               <div>
                 <label className="block text-sm font-medium mb-1">
                   Especialidade
                 </label>
                 <select
-                  value={form.specialty}
-                  onChange={(e) => set("specialty", e.target.value)}
+                  value={form.speciality}
+                  onChange={(e) => set("speciality", e.target.value)}
                   className="w-full px-3 py-2 border rounded-lg"
                 >
                   {SPECIALTIES.map((s) => (
@@ -148,19 +181,20 @@ export default function EmployeeModal({ employee, onClose, onSave }) {
                 </label>
                 <Input
                   type="date"
-                  value={form.hire_date}
-                  onChange={(e) => set("hire_date", e.target.value)}
+                  value={form.admission_date}
+                  onChange={(e) => set("admission_date", e.target.value)}
                 />
               </div>
+
               <div>
                 <label className="block text-sm font-medium mb-1">
                   Salário (R$)
                 </label>
                 <Input
-                  type="number"
-                  step="0.01"
+                  type="text"
                   value={form.salary}
                   onChange={(e) => set("salary", e.target.value)}
+                  placeholder="ex: 3000.00"
                 />
               </div>
 
@@ -171,6 +205,7 @@ export default function EmployeeModal({ employee, onClose, onSave }) {
                 <Textarea
                   value={form.notes}
                   onChange={(e) => set("notes", e.target.value)}
+                  rows={3}
                 />
               </div>
             </div>

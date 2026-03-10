@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { format, eachMonthOfInterval, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -7,6 +7,7 @@ import {
 } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TrendingUp, TrendingDown, Calendar } from 'lucide-react';
+import { listAppointments, listTransactions } from '@/services/api';
 
 const COLORS = ['#14b8a6', '#06b6d4', '#f59e0b', '#8b5cf6', '#ef4444', '#10b981', '#3b82f6', '#f97316'];
 
@@ -21,50 +22,37 @@ const serviceLabels = {
   outro: 'Outro'
 };
 
-function safeParseJSON(value, fallback) {
-  try {
-    return JSON.parse(value);
-  } catch {
-    return fallback;
-  }
-}
-
-function loadFromLocalStorage(possibleKeys, fallback = []) {
-  for (const key of possibleKeys) {
-    const raw = localStorage.getItem(key);
-    if (raw) {
-      const parsed = safeParseJSON(raw, null);
-      if (Array.isArray(parsed)) return parsed;
-    }
-  }
-  return fallback;
-}
-
-function toNumberAmount(v) {
-  if (typeof v === 'number') return v;
-  if (typeof v !== 'string') return 0;
-  // aceita "1.234,56" e "1234.56"
-  const normalized = v.replace(/\./g, '').replace(',', '.');
-  const n = Number(normalized);
-  return Number.isFinite(n) ? n : 0;
-}
-
 export default function Relatorios() {
-  // ✅ Ajuste aqui se você tiver escolhido outros nomes de chave
-  const appointments = useMemo(() => {
-    const data = loadFromLocalStorage(
-      ['odontoello.appointments', 'appointments', 'odonto_appointments'],
-      []
-    );
-    return data;
-  }, []);
+  const [appointments, setAppointments] = useState([]);
+  const [transactions, setTransactions] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const transactions = useMemo(() => {
-    const data = loadFromLocalStorage(
-      ['odontoello.transactions', 'transactions', 'odonto_transactions'],
-      []
-    ).map(t => ({ ...t, amount: toNumberAmount(t.amount) }));
-    return data;
+  // Buscar dados da API
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadData() {
+      try {
+        setLoading(true);
+        
+        const [appts, txns] = await Promise.all([
+          listAppointments({ limit: 500, signal: controller.signal }).catch(() => []),
+          listTransactions({ limit: 500, signal: controller.signal }).catch(() => []),
+        ]);
+
+        setAppointments(Array.isArray(appts) ? appts : appts?.data ?? []);
+        setTransactions(Array.isArray(txns) ? txns : txns?.data ?? []);
+      } catch (err) {
+        if (err?.name !== "AbortError") {
+          console.error("Erro ao carregar dados do relatório:", err);
+        }
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadData();
+    return () => controller.abort();
   }, []);
 
   // Últimos 6 meses
@@ -81,14 +69,14 @@ export default function Relatorios() {
       const label = format(month, 'MMM', { locale: ptBR });
 
       const revenue = transactions
-        .filter(t => t.type === 'receita' && t.date?.startsWith(key))
-        .reduce((s, t) => s + (t.amount || 0), 0);
+        .filter(t => t.type === 'receita' && t.date?.startsWith?.(key))
+        .reduce((s, t) => s + (Number(t.amount) || 0), 0);
 
       const expenses = transactions
-        .filter(t => t.type === 'despesa' && t.date?.startsWith(key))
-        .reduce((s, t) => s + (t.amount || 0), 0);
+        .filter(t => t.type === 'despesa' && t.date?.startsWith?.(key))
+        .reduce((s, t) => s + (Number(t.amount) || 0), 0);
 
-      const appts = appointments.filter(a => a.date?.startsWith(key)).length;
+      const appts = appointments.filter(a => a.date?.startsWith?.(key)).length;
 
       return { label, revenue, expenses, balance: revenue - expenses, appts };
     });
@@ -107,18 +95,34 @@ export default function Relatorios() {
 
   const currentMonthKey = format(new Date(), 'yyyy-MM');
   const currentRevenue = transactions
-    .filter(t => t.type === 'receita' && t.date?.startsWith(currentMonthKey))
-    .reduce((s, t) => s + (t.amount || 0), 0);
+    .filter(t => t.type === 'receita' && t.date?.startsWith?.(currentMonthKey))
+    .reduce((s, t) => s + (Number(t.amount) || 0), 0);
 
   const currentExpenses = transactions
-    .filter(t => t.type === 'despesa' && t.date?.startsWith(currentMonthKey))
-    .reduce((s, t) => s + (t.amount || 0), 0);
+    .filter(t => t.type === 'despesa' && t.date?.startsWith?.(currentMonthKey))
+    .reduce((s, t) => s + (Number(t.amount) || 0), 0);
 
-  const currentAppts = appointments.filter(a => a.date?.startsWith(currentMonthKey)).length;
+  const currentAppts = appointments.filter(a => a.date?.startsWith?.(currentMonthKey)).length;
 
   const fmt = (v) => `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}`;
 
   const hasAnyData = appointments.length > 0 || transactions.length > 0;
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="grid sm:grid-cols-3 gap-4">
+          {[1, 2, 3].map((i) => (
+            <Card key={i} className="border-0 shadow-sm">
+              <CardContent className="p-5">
+                <div className="h-20 bg-gray-100 rounded-lg animate-pulse" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -148,7 +152,7 @@ export default function Relatorios() {
         <Card className="border-0 shadow-sm">
           <CardContent className="p-10 text-center text-gray-500">
             <p className="font-medium">Ainda não há dados para gerar relatórios.</p>
-            <p className="text-sm mt-1">Crie alguns agendamentos e transações no protótipo.</p>
+            <p className="text-sm mt-1">Crie alguns agendamentos e transações para alimentar os gráficos.</p>
           </CardContent>
         </Card>
       )}

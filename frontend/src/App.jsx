@@ -10,6 +10,15 @@ import Financeiro from "./pages/Financial.jsx";
 import Relatorios from "./pages/Reports.jsx";
 import Funcionarios from "./pages/Employees.jsx";
 import Calendario from "./pages/CalendarHub.jsx"
+import { isAuthenticated } from "./services/api";
+
+function ProtectedRoute({ children }) {
+  if (!isAuthenticated()) {
+    return <Navigate to="/" replace />;
+  }
+
+  return children;
+}
 
 export default function App() {
   return (
@@ -18,13 +27,13 @@ export default function App() {
       <Route path="/" element={<Home />} />
 
       {/* Rotas administrativas com layout sidebar */}
-      <Route path="/admin" element={<AdminLayout><Dashboard/></AdminLayout>}/>
-      <Route path="/admin/agendamentos" element={<AdminLayout><Appointments/></AdminLayout>}/>
-      <Route path="/admin/pacientes" element={<AdminLayout><Patients/></AdminLayout>}/>
-      <Route path="/admin/financeiro" element={<AdminLayout><Financeiro/></AdminLayout>}/>
-      <Route path="/admin/relatorios" element={<AdminLayout><Relatorios/></AdminLayout>}/>
-      <Route path="/admin/funcionarios" element={<AdminLayout><Funcionarios/></AdminLayout>}/>
-      <Route path="/admin/calendario" element={<AdminLayout><Calendario/></AdminLayout>}/>
+      <Route path="/admin" element={<ProtectedRoute><AdminLayout><Dashboard/></AdminLayout></ProtectedRoute>}/>
+      <Route path="/admin/agendamentos" element={<ProtectedRoute><AdminLayout><Appointments/></AdminLayout></ProtectedRoute>}/>
+      <Route path="/admin/pacientes" element={<ProtectedRoute><AdminLayout><Patients/></AdminLayout></ProtectedRoute>}/>
+      <Route path="/admin/financeiro" element={<ProtectedRoute><AdminLayout><Financeiro/></AdminLayout></ProtectedRoute>}/>
+      <Route path="/admin/relatorios" element={<ProtectedRoute><AdminLayout><Relatorios/></AdminLayout></ProtectedRoute>}/>
+      <Route path="/admin/funcionarios" element={<ProtectedRoute><AdminLayout><Funcionarios/></AdminLayout></ProtectedRoute>}/>
+      <Route path="/admin/calendario" element={<ProtectedRoute><AdminLayout><Calendario/></AdminLayout></ProtectedRoute>}/>
       
       {/* Fallback para rotas inválidas */}
       <Route path="*" element={<Navigate to="/" replace />} />

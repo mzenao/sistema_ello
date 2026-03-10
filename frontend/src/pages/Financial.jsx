@@ -6,8 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import TransactionModal from '@/components/internal/TransactionModal.jsx';
-
-const STORAGE_KEY = 'odontoello_transactions_v1';
+import { listTransactions, deleteTransaction, createTransaction, updateTransaction } from '@/services/api';
 
 const categoryLabels = {
   consulta: 'Consulta', procedimento: 'Procedimento', convenio: 'Convênio',
@@ -20,26 +19,6 @@ const paymentLabels = {
   pix: 'PIX', transferencia: 'Transferência', convenio: 'Convênio'
 };
 
-
-function loadTransactions() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return seedTransactions;
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : seedTransactions;
-  } catch {
-    return seedTransactions;
-  }
-}
-
-function saveTransactions(list) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-}
-
-function uid(prefix = 't') {
-  return `${prefix}_${Math.random().toString(16).slice(2)}_${Date.now().toString(16)}`;
-}
-
 export default function Financeiro() {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -51,25 +30,35 @@ export default function Financeiro() {
   const [showModal, setShowModal] = useState(false);
   const [editingTxn, setEditingTxn] = useState(null);
 
+  // Carregar transações da API
   const load = async () => {
-    setLoading(true);
-    const data = loadTransactions()
-      .slice()
-      .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    try {
+      setLoading(true);
+      const data = await listTransactions({ limit: 500 });
+      
+      const list = Array.isArray(data) ? data : data?.data ?? [];
+      const sorted = list
+        .slice()
+        .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
-    const normalized = data.map(t => ({
-      ...t,
-      dateDisplay: t.date
-        ? new Date(t.date).toLocaleDateString("pt-BR", {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-          })
-        : "",
-    }));
+      const normalized = sorted.map(t => ({
+        ...t,
+        dateDisplay: t.date
+          ? new Date(t.date + 'T00:00:00').toLocaleDateString("pt-BR", {
+              day: "2-digit",
+              month: "2-digit",
+              year: "numeric",
+            })
+          : "",
+      }));
 
-    setTransactions(normalized);
-    setLoading(false);
+      setTransactions(normalized);
+    } catch (err) {
+      console.error("Erro ao carregar transações:", err);
+      setTransactions([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { load(); }, []);
@@ -104,41 +93,41 @@ export default function Financeiro() {
 
   const handleDelete = async (id) => {
     if (!confirm('Remover esta transação?')) return;
-    const next = transactions.filter(t => t.id !== id);
-    setTransactions(next);
-    saveTransactions(next);
+    try {
+      await deleteTransaction(id);
+      // Recarregar listagem após deleção
+      await load();
+    } catch (err) {
+      console.error("Erro ao deletar:", err);
+      alert("Erro ao deletar transação");
+    }
   };
 
   const handleSave = async (payload) => {
-    const clean = {
-      ...payload,
-      amount: Number(payload.amount) || 0,
-      date: payload.date || format(new Date(), 'yyyy-MM-dd'), // ISO seguro
-      description: payload.description?.trim() || 'Sem descrição'
-    };
+    try {
+      const clean = {
+        ...payload,
+        amount: Number(payload.amount) || 0,
+        date: payload.date || format(new Date(), 'yyyy-MM-dd'),
+        description: payload.description?.trim() || 'Sem descrição'
+      };
 
-    const withDisplay = {
-      ...clean,
-      dateDisplay: new Date(clean.date).toLocaleDateString("pt-BR", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      }),
-    };
+      if (editingTxn?.id) {
+        // Editar
+        await updateTransaction(editingTxn.id, clean);
+      } else {
+        // Criar
+        await createTransaction(clean);
+      }
 
-    let next = [];
-
-    if (editingTxn?.id) {
-      next = transactions.map(t =>
-        t.id === editingTxn.id ? { ...t, ...withDisplay } : t
-      );
-    } else {
-      next = [{ id: uid(), ...withDisplay }, ...transactions];
+      // Recarregar listagem após salvar
+      await load();
+      setShowModal(false);
+      setEditingTxn(null);
+    } catch (err) {
+      console.error("Erro ao salvar:", err);
+      alert("Erro ao salvar transação");
     }
-
-    next = next.slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-    setTransactions(next);
-    saveTransactions(next);
   };
 
   return (

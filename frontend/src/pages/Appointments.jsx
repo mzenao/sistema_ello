@@ -9,7 +9,7 @@ import {
   listAppointments,
   deleteAppointment,
   updateAppointment,
-} from "@/services/mockAppointments";
+} from "@/services/api";
 
 const statusColors = {
   agendado: "bg-blue-100 text-blue-700",
@@ -30,13 +30,20 @@ const serviceLabels = {
   outro: "Outro",
 };
 
-// Função para manter consistência no filtro
+// Função para manter consistência no filtro - usar data local, não UTC
 const formatDateISO = (date) => {
-  return date.toISOString().split("T")[0]; 
+  // Converte para Date se for string
+  const d = typeof date === 'string' ? new Date(date + 'T00:00:00') : new Date(date);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
 };
 
 const formatDatePtBr = (date) => {
-  return date.toLocaleDateString("pt-BR", {
+  // Converte para Date se for string
+  const d = typeof date === 'string' ? new Date(date + 'T00:00:00') : new Date(date);
+  return d.toLocaleDateString("pt-BR", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -61,8 +68,8 @@ export default function Agendamentos() {
     // garantir que cada appointment tenha dateStr em ISO
     const normalized = data.map((a) => ({
       ...a,
-      dateStr: formatDateISO(new Date(a.date)), // normaliza para ISO
-      dateDisplay: formatDatePtBr(new Date(a.date)), // para mostrar na tela
+      dateStr: a.date, // Já vem em ISO do backend "2026-03-10"
+      dateDisplay: formatDatePtBr(a.date), // para mostrar na tela
     }));
 
     setAppointments(normalized);

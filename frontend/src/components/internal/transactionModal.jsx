@@ -82,6 +82,7 @@ export default function TransactionModal({ transaction, onClose, onSave }) {
     setSaving(true);
 
     const payload = {
+      ...(transaction?.id && { id: transaction.id }),
       type: form.type,
       category: form.category,
       description: form.description.trim(),

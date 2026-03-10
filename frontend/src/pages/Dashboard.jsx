@@ -69,18 +69,30 @@ export default function Dashboard() {
     return () => controller.abort();
   }, []);
 
-  // Função para formato ISO (seguro para comparações)
+  // Função para formato ISO (seguro para comparações) - obter data local SEM fuso horário
 const formatDateISO = (date) => {
-  return date.toISOString().split("T")[0]; // "2026-03-03"
+  let d = date;
+  if (typeof date === 'string') {
+    // Se for string ISO, converter para data local
+    d = new Date(date + 'T00:00:00');
+  }
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`; // "2026-03-10"
 };
 
 // Função para formato pt-BR (apenas exibição)
 const formatDatePtBr = (date) => {
-  return date.toLocaleDateString("pt-BR", {
+  let d = date;
+  if (typeof date === 'string') {
+    d = new Date(date + 'T00:00:00');
+  }
+  return d.toLocaleDateString("pt-BR", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
-  }); // "03/03/2026"
+  }); // "10/03/2026"
 };
 
 const {
@@ -93,7 +105,7 @@ const {
 } = useMemo(() => {
   const todayISO = formatDateISO(new Date());
   const todayAppointmentsLocal = appointments.filter(
-    (a) => a.dateStr === todayISO
+    (a) => a.date === todayISO
   );
 
   // Definir início e fim do mês em ISO
@@ -102,7 +114,7 @@ const {
   const monthEnd = formatDateISO(new Date(now.getFullYear(), now.getMonth() + 1, 0));
 
   const monthTransactions = transactions.filter(
-    (t) => t.dateStr >= monthStart && t.dateStr <= monthEnd
+    (t) => t.date >= monthStart && t.date <= monthEnd
   );
 
   const revenueTx = monthTransactions.filter((t) => t.type === "receita");
