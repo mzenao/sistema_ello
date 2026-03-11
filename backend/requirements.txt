@@ -6,4 +6,4 @@ Flask-Marshmallow==1.2.1
 marshmallow==3.21.3
 marshmallow-sqlalchemy==1.0.0
 python-dotenv==1.0.1
-psycopg2-binary==2.9.6
+psycopg2-binary
