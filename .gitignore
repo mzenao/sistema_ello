@@ -1,0 +1,29 @@
+# secrets
+.env
+**/.env
+*.env
+
+# local python env
+.venv/
+venv/
+**/__pycache__/
+*.pyc
+
+# frontend build deps
+**/node_modules/
+**/dist/
+
+# editor/system
+.vscode/
+.idea/
+.DS_Store
+*.log
+
+# optional local docs not needed for deploy
+BACKEND_COMPLETO.md
+IMPLEMENTACAO_SEGURANCA.md
+PROXIMOS_PASSOS.md
+SEGURANCA.md
+database/ESTRUTURA_BANCO.md
+database/GUIA_RAPIDO.md
+database/INSTRUCOES_DBEAVER.md
