@@ -1,6 +1,7 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { CheckCircle2, Users, Clock, Award } from "lucide-react";
+import clinicaInterior from "../../assets/clinica_interior.png";
 
 const features = [
   "Equipe especializada e atualizada",
@@ -32,7 +33,7 @@ export default function About() {
           >
             <div className="aspect-[4/3] bg-gray-200 flex items-center justify-center">
               <span className="text-gray-500">
-                <img src="src/assets/clinica_interior.png" alt="Imagem da Clínica" className="w-full h-full object-cover" />
+                <img src={clinicaInterior} alt="Imagem da Clínica" className="w-full h-full object-cover" />
               </span>
             </div>
           </motion.div>
