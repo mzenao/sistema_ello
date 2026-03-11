@@ -3,7 +3,7 @@ import { Plus, Search, Edit2, Trash2, Users, Phone, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import PatientModal from "@/components/internal/PatientModal.jsx";
+import PatientModal from "@/components/internal/patientModal.jsx";
 import { listPatients, createPatient, updatePatient, deletePatient } from "@/services/api";
 
 export default function Pacientes() {
