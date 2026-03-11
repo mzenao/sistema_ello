@@ -1,7 +1,7 @@
 // filepath: frontend/src/App.jsx
 // Router principal que mapeia as rotas da aplicação
 import { Routes, Route, Navigate } from "react-router-dom";
-import Home from "./pages/home.jsx";
+import Home from "./pages/Home.jsx";
 import AdminLayout from "./layout.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Appointments from "./pages/Appointments.jsx";
