@@ -3,7 +3,7 @@ import { Plus, Search, Edit2, Trash2, Users, Phone, Mail, Briefcase } from "luci
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import EmployeeModal from "@/components/internal/EmployeeModal.jsx";
+import EmployeeModal from "@/components/internal/employeeModal.jsx";
 import { listWorkers, createWorker, updateWorker, deleteWorker } from "@/services/api.js";
 
 export default function Funcionarios() {
