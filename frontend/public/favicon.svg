@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Ello Odontologia">
+  <!-- Usa a mesma logo PNG, com zoom para ocupar mais area visivel do favicon -->
+  <image
+    href="/src/assets/logo_ello.png"
+    x="-8"
+    y="-8"
+    width="80"
+    height="80"
+    preserveAspectRatio="xMidYMid slice"
+  />
+</svg>
