@@ -1,5 +1,6 @@
 // Configuração da API
-const API_BASE_URL = "http://localhost:5000/api";
+const API_HOST = (import.meta.env.VITE_API_URL || "http://localhost:5000").replace(/\/$/, "");
+const API_BASE_URL = `${API_HOST}/api`;
 
 // Helper para fazer requisições com token automático
 async function apiRequest(endpoint, options = {}) {
